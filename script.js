@@ -88,37 +88,88 @@ document.getElementById("discard").addEventListener("click", () => {
 });
 
 
+//------------------- Rhino Lines ---------------------------
+// Function to load and draw Rhino-exported vector lines from a JSON file
+function loadRhinoLines() {
+  fetch("rhino-lines/rhino-lines.json")
+    .then((response) => response.json())
+    .then((data) => {
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 1;
+
+      data.forEach((line) => {
+        if (line.length < 2) return;
+        ctx.beginPath();
+        ctx.moveTo(line[0][0] * canvas.width, (1 - line[0][1]) * canvas.height);
+        for (let i = 1; i < line.length; i++) {
+          ctx.lineTo(line[i][0] * canvas.width, (1 - line[i][1]) * canvas.height);
+        }
+        ctx.stroke();
+      });
+    })
+    .catch((err) => console.error("Error loading rhino lines:", err));
+}
+
+
+
 // ========== Load Latest Sketch on Page Load ==========
 window.onload = () => {
+  // Set brush as the default active tool
   brushBtn.classList.add("active");
 
+  // Check if we should load a previously saved sketch
   const shouldLoad = localStorage.getItem("loadSketch");
 
-  // Clear the flag after reading
+  // Clear the flag to prevent repeated loading
   localStorage.removeItem("loadSketch");
 
-  // Only load if previous action was "save"
+  // Function to load and draw Rhino lines from JSON
+  function drawRhinoLinesAfterSketch() {
+    loadRhinoLines(); // <-- this draws the Rhino lines
+  }
+
+  // If the flag is set to true, load the last saved sketch
   if (shouldLoad === "true") {
     let n = 1000;
     function tryLoadNext() {
-      if (n <= 0) return;
+      if (n <= 0) {
+        drawRhinoLinesAfterSketch(); // Even if no sketch found, still draw Rhino lines
+        return;
+      }
+
       const path = `sketches/${n}.png`;
-      fetch(path).then(res => {
-        if (res.ok) {
-          res.blob().then(blob => {
-            const img = new Image();
-            img.onload = () => ctx.drawImage(img, 0, 0);
-            img.src = URL.createObjectURL(blob);
-          });
-        } else {
+      fetch(path)
+        .then(res => {
+          if (res.ok) {
+            res.blob().then(blob => {
+              const img = new Image();
+              img.onload = () => {
+                ctx.drawImage(img, 0, 0);
+                drawRhinoLinesAfterSketch(); // Draw Rhino lines AFTER the sketch is loaded
+              };
+              img.src = URL.createObjectURL(blob);
+            });
+          } else {
+            n--;
+            tryLoadNext();
+          }
+        })
+        .catch(() => {
           n--;
           tryLoadNext();
-        }
-      }).catch(() => {
-        n--;
-        tryLoadNext();
-      });
+        });
     }
+
     tryLoadNext();
+
+  } else {
+    // If no sketch is loaded, just draw Rhino lines directly
+    loadRhinoLines();
   }
 };
+
+
+
+
+
+
