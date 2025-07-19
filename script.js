@@ -6,6 +6,7 @@ let erasing = false;
 let lastX = 0;
 let lastY = 0;
 
+// ========== Drawing Logic ==========
 canvas.addEventListener("mousedown", (e) => {
   drawing = true;
   const rect = canvas.getBoundingClientRect();
@@ -16,11 +17,8 @@ canvas.addEventListener("mousedown", (e) => {
 canvas.addEventListener("mouseup", () => drawing = false);
 canvas.addEventListener("mouseout", () => drawing = false);
 
-canvas.addEventListener("mousemove", draw);
-
-function draw(e) {
+canvas.addEventListener("mousemove", (e) => {
   if (!drawing) return;
-
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
@@ -36,8 +34,9 @@ function draw(e) {
 
   lastX = x;
   lastY = y;
-}
+});
 
+// ========== Tool Buttons ==========
 const brushBtn = document.getElementById("brush");
 const eraserBtn = document.getElementById("eraser");
 
@@ -53,21 +52,73 @@ eraserBtn.addEventListener("click", () => {
   brushBtn.classList.remove("active");
 });
 
-document.getElementById("download").addEventListener("click", () => {
-  const imageData = canvas.toDataURL("image/png");
+// ========== Canvas Utilities ==========
+function clearCanvas() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
 
+function sendCanvasData() {
+  const imageData = canvas.toDataURL("image/png");
   fetch("http://localhost:8000", {
     method: "POST",
     body: imageData,
     headers: { "Content-Type": "text/plain" }
   })
-  .then(res => res.text())
-  .then(msg => console.log(msg));
+    .then(res => res.text())
+    .then(msg => console.log(msg));
+}
+
+// Save: Export only, retain drawing
+document.getElementById("save").addEventListener("click", () => {
+  localStorage.setItem("loadSketch", "true"); // Set flag to load sketch
+  sendCanvasData();
+});
+
+// Save & Clear: Export + Clear
+document.getElementById("saveClear").addEventListener("click", () => {
+  localStorage.setItem("loadSketch", "false"); // Prevent loading
+  sendCanvasData();
+  setTimeout(clearCanvas, 100);
+});
+
+// Discard: just clear
+document.getElementById("discard").addEventListener("click", () => {
+  localStorage.setItem("loadSketch", "false"); // Prevent loading
+  clearCanvas();
 });
 
 
-
-// Set default tool (brush) on load
+// ========== Load Latest Sketch on Page Load ==========
 window.onload = () => {
   brushBtn.classList.add("active");
+
+  const shouldLoad = localStorage.getItem("loadSketch");
+
+  // Clear the flag after reading
+  localStorage.removeItem("loadSketch");
+
+  // Only load if previous action was "save"
+  if (shouldLoad === "true") {
+    let n = 1000;
+    function tryLoadNext() {
+      if (n <= 0) return;
+      const path = `sketches/${n}.png`;
+      fetch(path).then(res => {
+        if (res.ok) {
+          res.blob().then(blob => {
+            const img = new Image();
+            img.onload = () => ctx.drawImage(img, 0, 0);
+            img.src = URL.createObjectURL(blob);
+          });
+        } else {
+          n--;
+          tryLoadNext();
+        }
+      }).catch(() => {
+        n--;
+        tryLoadNext();
+      });
+    }
+    tryLoadNext();
+  }
 };

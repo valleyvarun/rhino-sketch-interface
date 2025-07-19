@@ -1,17 +1,26 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>Sketch Interface</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h2>Sketch Pad</h2>
-  <div class="toolbar">
-    <button id="brush">Brush</button>
-    <button id="eraser">Eraser</button>
-    <button id="download">Export</button>
+
+  <header>
+    <h1>Sketch Interface</h1>
+  </header>
+
+  <div class="controls">
+    <button id="brush" type="button">Brush</button>
+    <button id="eraser" type="button">Eraser</button>
+    <button id="save" type="button">Save</button>
+    <button id="saveClear" type="button">Save & Clear</button>
+    <button id="discard" type="button">Discard</button>
   </div>
-  <canvas id="drawCanvas" width="800" height="600"></canvas>
+
+  <canvas id="drawCanvas" width="1000" height="600"></canvas>
+
   <script src="script.js"></script>
 </body>
 </html>
