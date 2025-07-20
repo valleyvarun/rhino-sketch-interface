@@ -100,9 +100,9 @@ function loadRhinoLines() {
       data.forEach((line) => {
         if (line.length < 2) return;
         ctx.beginPath();
-        ctx.moveTo(line[0][0] * canvas.width, (1 - line[0][1]) * canvas.height);
+        ctx.moveTo(line[0][0] * canvas.width, line[0][1] * canvas.height);
         for (let i = 1; i < line.length; i++) {
-          ctx.lineTo(line[i][0] * canvas.width, (1 - line[i][1]) * canvas.height);
+          ctx.lineTo(line[i][0] * canvas.width, line[i][1] * canvas.height);
         }
         ctx.stroke();
       });
