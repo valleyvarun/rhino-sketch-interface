@@ -59,84 +59,134 @@ function clearCanvas() {
 
 function sendCanvasData() {
   const imageData = canvas.toDataURL("image/png");
+
   fetch("http://localhost:8000", {
     method: "POST",
     body: imageData,
-    headers: { "Content-Type": "text/plain" }
+    headers: {
+      "Content-Type": "text/plain"
+    }
   })
     .then(res => res.text())
     .then(msg => console.log(msg));
 }
 
-// Save: Export only, retain drawing
+
+// Save: Load latest sketch after export
 document.getElementById("save").addEventListener("click", () => {
-  localStorage.setItem("loadSketch", "true"); // Set flag to load sketch
+  localStorage.setItem("loadSketch", "true");
   sendCanvasData();
+  setTimeout(() => loadRhinoLines(true), 200); // Load latest
 });
 
-// Save & Clear: Export + Clear
+// Save & Clear: Load sketch_1.json after export
 document.getElementById("saveClear").addEventListener("click", () => {
-  localStorage.setItem("loadSketch", "false"); // Prevent loading
+  localStorage.setItem("loadSketch", "false");
   sendCanvasData();
-  setTimeout(clearCanvas, 100);
+  setTimeout(() => {
+    clearCanvas();
+    loadRhinoLines(false); // Load sketch_1
+  }, 200);
 });
 
-// Discard: just clear
+// Discard: Just load sketch_1.json
 document.getElementById("discard").addEventListener("click", () => {
-  localStorage.setItem("loadSketch", "false"); // Prevent loading
+  localStorage.setItem("loadSketch", "false");
   clearCanvas();
+  loadRhinoLines(false); // Load sketch_1
 });
 
 
-//------------------- Rhino Lines ---------------------------
-// Function to load and draw Rhino-exported vector lines from a JSON file
-function loadRhinoLines() {
-  fetch("rhino-lines/rhino-lines.json")
-    .then((response) => response.json())
-    .then((data) => {
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 1;
 
-      data.forEach((line) => {
-        if (line.length < 2) return;
-        ctx.beginPath();
-        ctx.moveTo(line[0][0] * canvas.width, line[0][1] * canvas.height);
-        for (let i = 1; i < line.length; i++) {
-          ctx.lineTo(line[i][0] * canvas.width, line[i][1] * canvas.height);
-        }
-        ctx.stroke();
-      });
-    })
-    .catch((err) => console.error("Error loading rhino lines:", err));
+
+const rhinoCanvas = document.getElementById("rhinoCanvas");
+const rhinoCtx = rhinoCanvas.getContext("2d");
+
+async function loadRhinoLines(useLatest = true) {
+  const base = "rhino-lines/sketch_";
+  let i = 1;
+  let lastValid = null;
+
+  if (useLatest) {
+    // Try to find the highest numbered JSON file
+    while (true) {
+      const path = `${base}${i}.json`;
+      try {
+        const res = await fetch(path);
+        if (!res.ok) break;
+        lastValid = await res.json();
+        i++;
+      } catch {
+        break;
+      }
+    }
+  } else {
+    // Load only sketch_1.json
+    try {
+      const res = await fetch(`${base}1.json`);
+      if (res.ok) lastValid = await res.json();
+    } catch {
+      console.error("❌ Failed to load sketch_1.json");
+    }
+  }
+
+  if (!lastValid) {
+    console.error("❌ No valid Rhino sketch files found.");
+    return;
+  }
+
+  rhinoCtx.clearRect(0, 0, rhinoCanvas.width, rhinoCanvas.height);
+  rhinoCtx.strokeStyle = "red";
+  rhinoCtx.lineWidth = 1;
+
+  lastValid.forEach((line) => {
+    if (line.length < 2) return;
+    rhinoCtx.beginPath();
+    rhinoCtx.moveTo(line[0][0] * rhinoCanvas.width, line[0][1] * rhinoCanvas.height);
+    for (let i = 1; i < line.length; i++) {
+      rhinoCtx.lineTo(line[i][0] * rhinoCanvas.width, line[i][1] * rhinoCanvas.height);
+    }
+    rhinoCtx.stroke();
+  });
+}
+
+
+function drawRhinoLines(lines) {
+  const rhinoCanvas = document.getElementById("rhinoCanvas");
+  const rhinoCtx = rhinoCanvas.getContext("2d");
+
+  rhinoCtx.clearRect(0, 0, rhinoCanvas.width, rhinoCanvas.height);
+  rhinoCtx.strokeStyle = "red";
+  rhinoCtx.lineWidth = 1;
+
+  lines.forEach((line) => {
+    if (line.length < 2) return;
+    rhinoCtx.beginPath();
+    rhinoCtx.moveTo(line[0][0] * rhinoCanvas.width, line[0][1] * rhinoCanvas.height);
+    for (let i = 1; i < line.length; i++) {
+      rhinoCtx.lineTo(line[i][0] * rhinoCanvas.width, line[i][1] * rhinoCanvas.height);
+    }
+    rhinoCtx.stroke();
+  });
 }
 
 
 
-// ========== Load Latest Sketch on Page Load ==========
+
 window.onload = () => {
-  // Set brush as the default active tool
   brushBtn.classList.add("active");
 
-  // Check if we should load a previously saved sketch
   const shouldLoad = localStorage.getItem("loadSketch");
-
-  // Clear the flag to prevent repeated loading
   localStorage.removeItem("loadSketch");
 
-  // Function to load and draw Rhino lines from JSON
-  function drawRhinoLinesAfterSketch() {
-    loadRhinoLines(); // <-- this draws the Rhino lines
-  }
-
-  // If the flag is set to true, load the last saved sketch
   if (shouldLoad === "true") {
+    // Load the latest sketch image and then draw rhino lines
     let n = 1000;
     function tryLoadNext() {
       if (n <= 0) {
-        drawRhinoLinesAfterSketch(); // Even if no sketch found, still draw Rhino lines
+        loadRhinoLines(true);
         return;
       }
-
       const path = `sketches/${n}.png`;
       fetch(path)
         .then(res => {
@@ -145,7 +195,7 @@ window.onload = () => {
               const img = new Image();
               img.onload = () => {
                 ctx.drawImage(img, 0, 0);
-                drawRhinoLinesAfterSketch(); // Draw Rhino lines AFTER the sketch is loaded
+                loadRhinoLines(true);
               };
               img.src = URL.createObjectURL(blob);
             });
@@ -159,14 +209,13 @@ window.onload = () => {
           tryLoadNext();
         });
     }
-
     tryLoadNext();
-
   } else {
-    // If no sketch is loaded, just draw Rhino lines directly
-    loadRhinoLines();
+    // Otherwise just draw sketch_1
+    loadRhinoLines(false);
   }
 };
+
 
 
 

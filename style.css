@@ -30,7 +30,29 @@ button.active {
   color: white;
 }
 
-canvas {
-  border: 2px solid #333;
-  background-color: white;
+
+#canvasContainer {
+  position: relative;
+  width: 800px;
+  height: 600px;
+  margin: 40px auto; /* center horizontally and give vertical spacing */
+  background-color: white;  /* white background */
+  border: 2px solid #333;   /* border around entire canvas stack */
+}
+
+#rhinoCanvas,
+#drawCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 800px;
+  height: 600px;
+}
+
+#drawCanvas {
+  z-index: 2;
+}
+
+#rhinoCanvas {
+  z-index: 1;
 }
